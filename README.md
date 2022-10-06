@@ -50,8 +50,9 @@ As much as I'd like to, please do not expect to recieve help from me about how t
 * Tested on Win, iOS and Android
 * Built in delays for optimization and to randomize the game play a bit. Stop the flip flop of hidden / not hidden
 
-Example used in a content heavy scene. The ULightDetector component is attached to my character. You can see the value on the top left side of the screen. It's between 0 and 255
-https://www.youtube.com/watch?v=aEDvIdAgXSs
+Example used in a content heavy scene. The ULightDetector component is attached to my character. You can see the value on the top left side of the screen. It's between 0 and 255  
+
+https://www.youtube.com/watch?v=aEDvIdAgXSs  
 
 The little character Jumper will turn her tail light on and off depending on how much the directional light is effecting the Light Detector Mesh. In order for her tail light to not effect the Light Detector Mesh, I set the Light Detector Mesh to Light Channel 2.. And the Directional Light (Sun Light) to effect Channel 1 and 2. This allows you to place invisible lights that have no impact on performance to only effect things on channel 2 (The Light Detector Mesh). This way you can illuminate the Light Detector Mesh with out illuminating the character or scene.
 
