@@ -1,4 +1,4 @@
-# UE4-Light-Detector
+# UE5-Light-Detector
 A C++ Implementation of a stealth game Light Meter similar to those seen in games such as the Thief or Splinter Cell games. 
 
 # Overview
@@ -6,7 +6,7 @@ This method does not use the more commonly seen method of raytcasting from the p
 http://forums.thedarkmod.com/topic/18882-how-does-the-light-awareness-system-las-work/
 
 
-There are several advantages and disadvantages with the way this has been implemented in this UE4 project: 
+There are several advantages and disadvantages with the way this has been implemented in this UE5 project: 
 
 ADVANTAGES:
 * This method factors in bounced lighting. With a raycasting implementation, if line of sight between a light source and the player is broken by some object in the way (eg, a pillar), the player will register as completely invisible. This is obviously not accurate since indirect lighting bounces around the pillar and will still illuminate the player to some extent. Because the Light Detector object samples light data from the Volumetric Lightmaps, this indirect lighting is accounted for. 
@@ -30,7 +30,29 @@ DISADVANTAGES:
 
 # LICENSE
 
-Everything created specifically by me (ie excluding all code and assets that come with the Third Person Template for UE4) exists under the Unlicense. Check the LICENSE file for more details.
+Everything created specifically by me (ie excluding all code and assets that come with the Third Person Template for UE5) exists under the Unlicense. Check the LICENSE file for more details.
 
 
 As much as I'd like to, please do not expect to recieve help from me about how to apply this project to your own needs. I will be providing no help/support for how to use this project beyond this Readme file. 
+
+# Update Oct 6th 2022
+* Turned ALightDetector into ULightDetector (an actor component)
+* Optimized code previously was getting 60FPS now getting 120FPS
+* reduced render textures to 4x4 .. can also use 8x8 if you need more detail.
+* Only run once a second as ReadPixels is expensive
+* Changed from CaptureScene (forced render) to CaptureSceneDeferred (will be captured next render)
+* used ParallelFor to process both textures at the same time
+* used ParallelFor to itterate through pixels
+* Simpifiy brigtness math
+* Optimized settings applied to SceneCaptureComponents2D on character. (we really only want to detect light)
+* Hide character mesh so it doesn't obscure the Light Detector Mesh
+* Create flat white material for Light Detector Mesh
+* Tested on Win, iOS and Android
+* Built in delays for optimization and to randomize the game play a bit. Stop the flip flop of hidden / not hidden
+
+Example used in a content heavy scene. The ULightDetector component is attached to my character. You can see the value on the top left side of the screen. It's between 0 and 255
+https://www.youtube.com/watch?v=aEDvIdAgXSs
+
+The little character Jumper will turn her tail light on and off depending on how much the directional light is effecting the Light Detector Mesh. In order for her tail light to not effect the Light Detector Mesh, I set the Light Detector Mesh to Light Channel 2.. And the Directional Light (Sun Light) to effect Channel 1 and 2. This allows you to place invisible lights that have no impact on performance to only effect things on channel 2 (The Light Detector Mesh). This way you can illuminate the Light Detector Mesh with out illuminating the character or scene.
+
+

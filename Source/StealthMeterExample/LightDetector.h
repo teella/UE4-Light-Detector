@@ -1,46 +1,58 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
 #pragma once
 
-#include <memory>
-
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "Components/ActorComponent.h"
+#include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
-#include "UnrealClient.h"
 #include "LightDetector.generated.h"
 
-UCLASS()
-class STEALTHMETEREXAMPLE_API ALightDetector : public AActor
+
+UCLASS(ClassGroup = (GothGirl), BlueprintType, Blueprintable, meta = (BlueprintSpawnableComponent))
+class STEALTHMETEREXAMPLE_API ULightDetector : public UActorComponent
 {
 	GENERATED_BODY()
 
-	UFUNCTION(BlueprintCallable, Category = "LightDetection")
-	float CalculateBrightness();
+public:	
+	// Sets default values for this component's properties
+	ULightDetector();
 
-	void ProcessRenderTexture(UTextureRenderTarget2D *texture);
-
-	TArray<FColor> pixelStorage;
-	float pixelChannelR{ 0 };
-	float pixelChannelG{ 0 };
-	float pixelChannelB{ 0 };
-	float brightnessOutput{ 0 };
-	float currentPixelBrightness{ 0 };
-	FRenderTarget *fRenderTarget;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
+	float LightUpdateInterval;
 
 	// The Render Textures we will be passing into the CalculateBrightness() method
-	UPROPERTY(EditAnywhere)
-	UTextureRenderTarget2D *detectorTextureTop;
-	UPROPERTY(EditAnywhere)
-	UTextureRenderTarget2D *detectorTextureBottom;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
+	TObjectPtr<UTextureRenderTarget2D> detectorTextureTop = nullptr;
 
-public:	
-	// Sets default values for this actor's properties
-	ALightDetector();
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
+	TObjectPtr <UTextureRenderTarget2D> detectorTextureBottom = nullptr;
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
+	TObjectPtr <USceneCaptureComponent2D> detectorBottom = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
+	TObjectPtr <USceneCaptureComponent2D> detectorTop = nullptr;
 
 public:	
 	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	UFUNCTION(BlueprintPure, Category = "LightDetection")
+	float GetBrightness() { return brightnessOutput; }
+
+private:
+	FCriticalSection Mutex;
+	float NextLightDectorUpdate;
+
+	TObjectPtr<FRenderTarget> fRenderTarget = nullptr;
+	TArray<FColor> pixelStorage1;
+	TArray<FColor> pixelStorage2;
+
+	float brightnessOutput{ 0 };
+	float currentBrightness{ 0 };
+	float lastDelta{ 0 };
+
+	void ProcessRenderTexture(TArray<FColor> pixelStorage);
+	float CalculateBrightness();
 };
