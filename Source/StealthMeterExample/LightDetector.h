@@ -8,7 +8,6 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include "LightDetector.generated.h"
 
-
 UCLASS(ClassGroup = (GothGirl), BlueprintType, Blueprintable, meta = (BlueprintSpawnableComponent))
 class STEALTHMETEREXAMPLE_API ULightDetector : public UActorComponent
 {
@@ -55,11 +54,17 @@ private:
 	void ProcessRenderTexture(TArray<FColor> pixelStorage);
 	float CalculateBrightness();
 
+	enum CAPTURESIDE
+	{
+		TOP = 0,
+		BOTTOM
+	};
+
 	void ProcessBrightness();
 	void ReadPixelsNonBlocking(UTextureRenderTarget2D* renderTarget, TArray<FColor>& OutImageData);
-	bool bReadPixelsStartedTop{ false };
-	bool bReadPixelsStartedBottom{ false };
-	FRenderCommandFence ReadPixelFenceTop;
-	FRenderCommandFence ReadPixelFenceBottom;
+	TArray<bool>bReadPixelsStarted;
+	TArray<bool>bCaptureStarted;
+	TArray<FRenderCommandFence> ReadPixelFence;
+	TArray<FRenderCommandFence> CaptureFence;
 	float NextReadFenceBottomUpdate{ 0 };
 };

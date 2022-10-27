@@ -10,11 +10,16 @@ ULightDetector::ULightDetector()
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.TickInterval = 0.1;
+	PrimaryComponentTick.TickInterval = 0.0;
 
 	NextLightDectorUpdate = 0;
 
-	LightUpdateInterval = 0.1f;
+	LightUpdateInterval = 0.05f;
+
+	bReadPixelsStarted.AddDefaulted(2);
+	bCaptureStarted.AddDefaulted(2);
+	ReadPixelFence.AddDefaulted(2);
+	CaptureFence.AddDefaulted(2);
 }
 
 // Called every frame
@@ -24,11 +29,59 @@ void ULightDetector::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 
 	if (GetWorld() && GetWorld()->IsGameWorld())
 	{
-		if (!bReadPixelsStartedTop && !bReadPixelsStartedBottom)
+		if (!bReadPixelsStarted[CAPTURESIDE::TOP] && !bReadPixelsStarted[CAPTURESIDE::BOTTOM] && 
+			!bCaptureStarted[CAPTURESIDE::TOP] && !bCaptureStarted[CAPTURESIDE::BOTTOM])
 		{
 			CalculateBrightness();
 		}
-		else if (bReadPixelsStartedTop && ReadPixelFenceTop.IsFenceComplete())
+		else if (bCaptureStarted[CAPTURESIDE::TOP] && CaptureFence[CAPTURESIDE::TOP].IsFenceComplete())
+		{
+			//we always reset NextReadFenceBottomUpdate to 0 once done
+			//this allows a 0.1 second between render requests and reading pixels
+			//play nice with GPU
+			if (NextReadFenceBottomUpdate <= 0)
+			{
+				NextReadFenceBottomUpdate = GetWorld()->GetTimeSeconds() + 0.1;
+			}
+
+			if (NextReadFenceBottomUpdate < GetWorld()->GetTimeSeconds())
+			{
+				//reset TOP capture bool
+				bCaptureStarted[CAPTURESIDE::TOP] = false;
+
+				detectorBottom->CaptureSceneDeferred();
+				CaptureFence[CAPTURESIDE::BOTTOM].BeginFence(); //lets us know when the capture is done
+				bCaptureStarted[CAPTURESIDE::BOTTOM] = true;
+
+				NextReadFenceBottomUpdate = 0;
+			}
+		}
+		else if (bCaptureStarted[CAPTURESIDE::BOTTOM] && CaptureFence[CAPTURESIDE::BOTTOM].IsFenceComplete())
+		{
+			//we always reset NextReadFenceBottomUpdate to 0 once done
+			//this allows a 0.1 second between render requests and reading pixels
+			//play nice with GPU
+			if (NextReadFenceBottomUpdate <= 0)
+			{
+				NextReadFenceBottomUpdate = GetWorld()->GetTimeSeconds() + 0.1;
+			}
+
+			if (NextReadFenceBottomUpdate < GetWorld()->GetTimeSeconds())
+			{
+				//reset BOTTOM capture bool
+				bCaptureStarted[CAPTURESIDE::BOTTOM] = false;
+
+				//ReadPixelsNonBlocking will queue a request on the render thread once the scene is done rendering
+				ReadPixelsNonBlocking(detectorTextureTop, pixelStorageTop);
+				//this fence will return IsFenceComplete as true once completed
+				ReadPixelFence[CAPTURESIDE::TOP].BeginFence();
+				//fence will always return true before BeginFence is called. so need bool to stop this
+				bReadPixelsStarted[CAPTURESIDE::TOP] = true;
+
+				NextReadFenceBottomUpdate = 0;
+			}
+		}
+		else if (bReadPixelsStarted[CAPTURESIDE::TOP] && ReadPixelFence[CAPTURESIDE::TOP].IsFenceComplete())
 		{
 			//we always reset NextReadFenceBottomUpdate to 0 once done
 			//this allows a 0.1 second between render requests and reading pixels
@@ -39,15 +92,17 @@ void ULightDetector::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 			}
 
 			//render the bottom of the light detector mesh and queue a read pixel on render thread
-			if (!bReadPixelsStartedBottom && NextReadFenceBottomUpdate < GetWorld()->GetTimeSeconds())
+			if (!bReadPixelsStarted[CAPTURESIDE::BOTTOM] && NextReadFenceBottomUpdate < GetWorld()->GetTimeSeconds())
 			{
-				detectorBottom->CaptureSceneDeferred();
 				ReadPixelsNonBlocking(detectorTextureBottom, pixelStorageBottom);
-				ReadPixelFenceBottom.BeginFence();
-				bReadPixelsStartedBottom = true;
+				ReadPixelFence[CAPTURESIDE::BOTTOM].BeginFence();
+				bReadPixelsStarted[CAPTURESIDE::BOTTOM] = true;
 			}
-			else if (bReadPixelsStartedBottom && ReadPixelFenceBottom.IsFenceComplete())
+			else if (bReadPixelsStarted[CAPTURESIDE::BOTTOM] && ReadPixelFence[CAPTURESIDE::BOTTOM].IsFenceComplete())
 			{
+				// Reset our values for the next brightness test
+				currentBrightness = 0;
+
 				//now both top and bottom have been captured. Lets check the values and reset variables
 				ProcessBrightness();
 			}
@@ -81,17 +136,10 @@ float ULightDetector::CalculateBrightness() {
 
 	if (NextLightDectorUpdate < GetWorld()->GetTimeSeconds())
 	{
-		// Reset our values for the next brightness test
-		currentBrightness = 0;
-
 		//CaptureSceneDeferred will capture the scene the next time it's render. So first time the scene will be black
 		detectorTop->CaptureSceneDeferred();
-		//ReadPixelsNonBlocking will queue a request on the render thread once the scene is done rendering
-		ReadPixelsNonBlocking(detectorTextureTop, pixelStorageTop);
-		//this fence will return IsFenceComplete as true once completed
-		ReadPixelFenceTop.BeginFence();
-		//fence will always return true before BeginFence is called. so need bool to stop this
-		bReadPixelsStartedTop = true;
+		CaptureFence[CAPTURESIDE::TOP].BeginFence(); //lets us know when the capture is done
+		bCaptureStarted[CAPTURESIDE::TOP] = true;
 	}
 
 	return brightnessOutput;
@@ -117,8 +165,8 @@ void ULightDetector::ProcessBrightness()
 	lastDelta = currentDelta;
 
 	//reset variables
-	bReadPixelsStartedTop = false;
-	bReadPixelsStartedBottom = false;
+	bReadPixelsStarted[CAPTURESIDE::TOP] = bReadPixelsStarted[CAPTURESIDE::BOTTOM] = false;
+	bCaptureStarted[CAPTURESIDE::TOP] = bCaptureStarted[CAPTURESIDE::BOTTOM] = false;
 	NextLightDectorUpdate = GetWorld()->GetTimeSeconds() + LightUpdateInterval;
 	NextReadFenceBottomUpdate = 0;
 }
