@@ -56,4 +56,8 @@ https://www.youtube.com/watch?v=aEDvIdAgXSs
 
 The little character Jumper will turn her tail light on and off depending on how much the directional light is effecting the Light Detector Mesh. In order for her tail light to not effect the Light Detector Mesh, I set the Light Detector Mesh to Light Channel 2.. And the Directional Light (Sun Light) to effect Channel 1 and 2. This allows you to place invisible lights that have no impact on performance to only effect things on channel 2 (The Light Detector Mesh). This way you can illuminate the Light Detector Mesh with out illuminating the character or scene.
 
+# Update Oct 27th 2022
+* Added non blocking read pixels
+* Set tick and interviel to 0.1 seconds
+* toggle GPU Shared on Render Textures
 

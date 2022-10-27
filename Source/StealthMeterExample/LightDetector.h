@@ -43,11 +43,10 @@ public:
 
 private:
 	FCriticalSection Mutex;
-	float NextLightDectorUpdate;
+	float NextLightDectorUpdate{ 0 };
 
-	TObjectPtr<FRenderTarget> fRenderTarget = nullptr;
-	TArray<FColor> pixelStorage1;
-	TArray<FColor> pixelStorage2;
+	TArray<FColor> pixelStorageTop;
+	TArray<FColor> pixelStorageBottom;
 
 	float brightnessOutput{ 0 };
 	float currentBrightness{ 0 };
@@ -55,4 +54,12 @@ private:
 
 	void ProcessRenderTexture(TArray<FColor> pixelStorage);
 	float CalculateBrightness();
+
+	void ProcessBrightness();
+	void ReadPixelsNonBlocking(UTextureRenderTarget2D* renderTarget, TArray<FColor>& OutImageData);
+	bool bReadPixelsStartedTop{ false };
+	bool bReadPixelsStartedBottom{ false };
+	FRenderCommandFence ReadPixelFenceTop;
+	FRenderCommandFence ReadPixelFenceBottom;
+	float NextReadFenceBottomUpdate{ 0 };
 };
