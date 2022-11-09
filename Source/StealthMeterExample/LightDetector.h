@@ -18,7 +18,16 @@ public:
 	ULightDetector();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
+	bool IgnoreBlueColor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
 	float LightUpdateInterval;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
+	float MinimumLightValue;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
+	int MaxLightHistory;
 
 	// The Render Textures we will be passing into the CalculateBrightness() method
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LightDetector|Components|LightDetector")
@@ -41,17 +50,14 @@ public:
 	float GetBrightness() { return brightnessOutput; }
 
 private:
-	FCriticalSection Mutex;
 	float NextLightDectorUpdate{ 0 };
 
 	TArray<FColor> pixelStorageTop;
 	TArray<FColor> pixelStorageBottom;
 
 	float brightnessOutput{ 0 };
-	float currentBrightness{ 0 };
-	float lastDelta{ 0 };
 
-	void ProcessRenderTexture(TArray<FColor> pixelStorage);
+	float ProcessRenderTexture(TArray<FColor> pixelStorage);
 	float CalculateBrightness();
 
 	enum CAPTURESIDE
@@ -67,4 +73,7 @@ private:
 	TArray<FRenderCommandFence> ReadPixelFence;
 	TArray<FRenderCommandFence> CaptureFence;
 	float NextReadFenceBottomUpdate{ 0 };
+
+	TArray<float> lightHistory;
+	int currentHistoryIndex;
 };

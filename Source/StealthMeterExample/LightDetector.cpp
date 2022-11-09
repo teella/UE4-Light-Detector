@@ -15,6 +15,10 @@ ULightDetector::ULightDetector()
 	NextLightDectorUpdate = 0;
 
 	LightUpdateInterval = 0.05f;
+	MinimumLightValue = 15.0f;
+	MaxLightHistory = 8;
+	lightHistory.AddDefaulted(MaxLightHistory + 1);
+	currentHistoryIndex = 0;
 
 	bReadPixelsStarted.AddDefaulted(2);
 	bCaptureStarted.AddDefaulted(2);
@@ -100,9 +104,6 @@ void ULightDetector::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 			}
 			else if (bReadPixelsStarted[CAPTURESIDE::BOTTOM] && ReadPixelFence[CAPTURESIDE::BOTTOM].IsFenceComplete())
 			{
-				// Reset our values for the next brightness test
-				currentBrightness = 0;
-
 				//now both top and bottom have been captured. Lets check the values and reset variables
 				ProcessBrightness();
 			}
@@ -110,19 +111,21 @@ void ULightDetector::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 	}
 }
 
-void ULightDetector::ProcessRenderTexture(TArray<FColor> pixelStorage)
+float ULightDetector::ProcessRenderTexture(TArray<FColor> pixelStorage)
 {
-	ParallelFor(pixelStorage.Num(), [this, &pixelStorage](int32 pixelNum)
-		{
-			float brightness = ((pixelStorage[pixelNum].R + pixelStorage[pixelNum].G + pixelStorage[pixelNum].B) * 0.333);
+	float count = 0;
 
-			if (brightness > currentBrightness)
-			{
-				Mutex.Lock();
-				if (brightness > currentBrightness) currentBrightness = brightness;
-				Mutex.Unlock();
-			}
-		}, EParallelForFlags::BackgroundPriority);
+	for (int pixelNum = 0; pixelNum < pixelStorage.Num(); pixelNum++)
+	{
+		float brightness = (IgnoreBlueColor ? ((pixelStorage[pixelNum].R + pixelStorage[pixelNum].G) * 0.5) : ((pixelStorage[pixelNum].R + pixelStorage[pixelNum].G + pixelStorage[pixelNum].B) * 0.333));
+
+		if (brightness > MinimumLightValue)
+		{
+			count+=1.0;
+		}
+	};
+
+	return count;
 }
 
 float ULightDetector::CalculateBrightness() {
@@ -147,22 +150,29 @@ float ULightDetector::CalculateBrightness() {
 
 void ULightDetector::ProcessBrightness()
 {
-	ParallelFor(2, [this](int32 index)
+	float topTotal = 0;
+	float bottomTotal = 0;
+
+	ParallelFor(2, [this, &topTotal, &bottomTotal](int32 index)
 		{
 			if (index == 0)
-				ProcessRenderTexture(pixelStorageTop);
+				topTotal = ProcessRenderTexture(pixelStorageTop);
 			else if (index == 1)
-				ProcessRenderTexture(pixelStorageBottom);
-		}, EParallelForFlags::BackgroundPriority);
+				bottomTotal = ProcessRenderTexture(pixelStorageBottom);
+		}, EParallelForFlags::Unbalanced);
 
-	// this is to help smooth things out. so you don't flip flop between being bright or dark
-	float currentDelta = UKismetMathLibrary::Abs(brightnessOutput - currentBrightness);
+	currentHistoryIndex++;
+	if (currentHistoryIndex > MaxLightHistory) currentHistoryIndex = 0;
+	//over all percentage of luminated
+	lightHistory[currentHistoryIndex] = (topTotal + bottomTotal) / (pixelStorageTop.Num() + pixelStorageBottom.Num());
 
-	if (UKismetMathLibrary::Abs(currentDelta - lastDelta) < 50)
+	//average out the last few light detects
+	brightnessOutput = 0;
+	for (int i = 0; i < MaxLightHistory; i++)
 	{
-		brightnessOutput = currentBrightness;
+		brightnessOutput += lightHistory[i];
 	}
-	lastDelta = currentDelta;
+	brightnessOutput /= MaxLightHistory;
 
 	//reset variables
 	bReadPixelsStarted[CAPTURESIDE::TOP] = bReadPixelsStarted[CAPTURESIDE::BOTTOM] = false;
