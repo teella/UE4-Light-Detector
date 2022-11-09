@@ -53,11 +53,8 @@ ADVANTAGES:
 * This method factors in bounced lighting. With a raycasting implementation, if line of sight between a light source and the player is broken by some object in the way (eg, a pillar), the player will register as completely invisible. This is obviously not accurate since indirect lighting bounces around the pillar and will still illuminate the player to some extent. Because the Light Detector object samples light data from the Volumetric Lightmaps, this indirect lighting is accounted for. 
 * This method factors in percieved luminance. Not all light sources will illuminate objects equally. Some colors, such as red, do not illuminate objects as well as other colors of light. Raycasting methods would not be able to factor this into this calculations, and most raycasting methods also probably wouldnt factor in other things such as the Radius and Intensity of the light entity. 
 * This method works for most light sources, including Spot Lights. Moving lights and different light states are also supported (eg if you turn a light in a room off, the light detector will react accordingly).
-
-DISADVANTAGES:
-* This method is only as accurate as your Volumetric Lightmap. If your Lightmap resolution is low, you will notice the results may not be as accurate as you'd like in certain locations, such as standing just to the side of a doorway. Increasing the resolution of your lightmaps can help but performance must be considered. 
-* This method appears to have problems with Directional Lights used to simulate the sun. Directional Light seems to bleed through walls often. If a player stands next to an exterior wall, he will be lit up by the outside Directional Light, even if the room he is in is pitch black. I was never able to fix this. This method has also not been tested with some more advanced lighting entities such as Skylights. 
-
+* Easy to setup
+* Having the light detector mesh effected by light channel 1 and 2 allows to use of hidden lights to "reveal" the character
 
 # Considerations
 
