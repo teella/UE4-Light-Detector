@@ -2,6 +2,9 @@
 A C++ Implementation of a stealth game Light Meter similar to those seen in games such as the Thief or Splinter Cell games. 
 
 # Update Nov 8th 2022
+Demo Video and showing how its put together  
+https://youtu.be/f824fFhBSuU  
+
 * Enabled Lumen in Project
 * Created out door scene and a test house
 * Changed light detection to return a percentage of how illumated the character is
