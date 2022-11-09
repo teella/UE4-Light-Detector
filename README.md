@@ -1,5 +1,43 @@
-# UE5-Light-Detector
+# UE5-Light-Detector (Works with Lumen!)
 A C++ Implementation of a stealth game Light Meter similar to those seen in games such as the Thief or Splinter Cell games. 
+
+# Update Nov 8th 2022
+* Enabled Lumen in Project
+* Created out door scene and a test house
+* Changed light detection to return a percentage of how illumated the character is
+* Added a lite threshold. Values must be over the light threshold to be consider lit
+* Added Light History to smooth out transitions
+* Set Scene Capture 2D to persist render state so lumen can be calculated on it
+* Set Scene Capture 2D post process, enable Lumen in Global Illumination and Reflections
+* Removed second parallel for
+
+# Update Oct 27th 2022
+* Added non blocking read pixels
+* Set tick and interviel to 0.1 seconds
+* toggle GPU Shared on Render Textures
+
+
+# Update Oct 6th 2022
+* Turned ALightDetector into ULightDetector (an actor component)
+* Optimized code previously was getting 60FPS now getting 120FPS
+* reduced render textures to 4x4 .. can also use 8x8 if you need more detail.
+* Only run once a second as ReadPixels is expensive
+* Changed from CaptureScene (forced render) to CaptureSceneDeferred (will be captured next render)
+* used ParallelFor to process both textures at the same time
+* used ParallelFor to itterate through pixels
+* Simpifiy brigtness math
+* Optimized settings applied to SceneCaptureComponents2D on character. (we really only want to detect light)
+* Hide character mesh so it doesn't obscure the Light Detector Mesh
+* Create flat white material for Light Detector Mesh
+* Tested on Win, iOS and Android
+* Built in delays for optimization and to randomize the game play a bit. Stop the flip flop of hidden / not hidden
+
+Example used in a content heavy scene. The ULightDetector component is attached to my character. You can see the value on the top left side of the screen. It's between 0 and 255  
+
+https://www.youtube.com/watch?v=aEDvIdAgXSs  
+
+The little character Jumper will turn her tail light on and off depending on how much the directional light is effecting the Light Detector Mesh. In order for her tail light to not effect the Light Detector Mesh, I set the Light Detector Mesh to Light Channel 2.. And the Directional Light (Sun Light) to effect Channel 1 and 2. This allows you to place invisible lights that have no impact on performance to only effect things on channel 2 (The Light Detector Mesh). This way you can illuminate the Light Detector Mesh with out illuminating the character or scene.
+
 
 # Overview
 This method does not use the more commonly seen method of raytcasting from the player to light sources. Instead, it takes a RenderTexture of an Octahedron mesh and iterates over every pixel in the texture to discover what the brightest pixel is.  This is done twice, once for the top of the octahedron, and a second time for the bottom of the octahedrone, to ensure the Detector is receiving light from every direction. This method is specifically very similar to the method used by the excellent project, "The Dark Mod". Information on how the detection method was done in that project can be viewed here:
@@ -34,30 +72,4 @@ Everything created specifically by me (ie excluding all code and assets that com
 
 
 As much as I'd like to, please do not expect to recieve help from me about how to apply this project to your own needs. I will be providing no help/support for how to use this project beyond this Readme file. 
-
-# Update Oct 6th 2022
-* Turned ALightDetector into ULightDetector (an actor component)
-* Optimized code previously was getting 60FPS now getting 120FPS
-* reduced render textures to 4x4 .. can also use 8x8 if you need more detail.
-* Only run once a second as ReadPixels is expensive
-* Changed from CaptureScene (forced render) to CaptureSceneDeferred (will be captured next render)
-* used ParallelFor to process both textures at the same time
-* used ParallelFor to itterate through pixels
-* Simpifiy brigtness math
-* Optimized settings applied to SceneCaptureComponents2D on character. (we really only want to detect light)
-* Hide character mesh so it doesn't obscure the Light Detector Mesh
-* Create flat white material for Light Detector Mesh
-* Tested on Win, iOS and Android
-* Built in delays for optimization and to randomize the game play a bit. Stop the flip flop of hidden / not hidden
-
-Example used in a content heavy scene. The ULightDetector component is attached to my character. You can see the value on the top left side of the screen. It's between 0 and 255  
-
-https://www.youtube.com/watch?v=aEDvIdAgXSs  
-
-The little character Jumper will turn her tail light on and off depending on how much the directional light is effecting the Light Detector Mesh. In order for her tail light to not effect the Light Detector Mesh, I set the Light Detector Mesh to Light Channel 2.. And the Directional Light (Sun Light) to effect Channel 1 and 2. This allows you to place invisible lights that have no impact on performance to only effect things on channel 2 (The Light Detector Mesh). This way you can illuminate the Light Detector Mesh with out illuminating the character or scene.
-
-# Update Oct 27th 2022
-* Added non blocking read pixels
-* Set tick and interviel to 0.1 seconds
-* toggle GPU Shared on Render Textures
 
