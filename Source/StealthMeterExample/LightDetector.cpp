@@ -2,8 +2,138 @@
 
 
 #include "LightDetector.h"
+#include "Containers/CircularQueue.h"
 #include "Kismet/KismetMathLibrary.h"
 
+//***********************************************************
+//Thread Worker Starts as NULL, prior to being instanced
+//      This line is essential! Compiler error without it
+FLightDetectorWorker* FLightDetectorWorker::Runnable = NULL;
+//***********************************************************
+
+//***********************************************************
+//						Thread Worker
+//***********************************************************
+FLightDetectorWorker::FLightDetectorWorker(ULightDetector* detector)
+	: Request(2)
+{
+	LightDetectorInstance = detector;
+	Thread = FRunnableThread::Create(this, TEXT("FOctreeWorker"), 0, TPri_BelowNormal); //windows default = 8mb for thread, could specify more
+}
+
+FLightDetectorWorker::~FLightDetectorWorker()
+{
+	delete Thread;
+	Thread = NULL;
+}
+
+bool FLightDetectorWorker::Init()
+{
+	//Init the Data
+	return true;
+}
+
+float FLightDetectorWorker::ProcessRenderTexture(TArray<FColor> pixelStorage, bool IgnoreBlueColor, float MinimumLightValue)
+{
+	float count = 0;
+
+	for (int pixelNum = 0; pixelNum < pixelStorage.Num(); pixelNum++)
+	{
+		float brightness = (IgnoreBlueColor ? ((pixelStorage[pixelNum].R + pixelStorage[pixelNum].G) * 0.5) : ((pixelStorage[pixelNum].R + pixelStorage[pixelNum].G + pixelStorage[pixelNum].B) * 0.333));
+
+		if (brightness > MinimumLightValue)
+		{
+			count += 1.0;
+		}
+	};
+
+	return count;
+}
+
+uint32 FLightDetectorWorker::Run()
+{
+	bool complete = true;
+
+	//Initial wait before starting
+	FPlatformProcess::Sleep(0.03);
+
+	while (StopTaskCounter.GetValue() == 0)
+	{
+		if (complete)
+		{
+			RequestData.Reset();
+			RequestData.AddDefaulted(1);
+
+			if (Request.Dequeue(RequestData.Last()))
+			{
+				complete = false;
+				int topTotal = ProcessRenderTexture(RequestData[0].topPixelStorage, RequestData[0].IgnoreBlueColor, RequestData[0].MinimumLightValue);
+				int bottomTotal = ProcessRenderTexture(RequestData[0].bottomPixelStorage, RequestData[0].IgnoreBlueColor, RequestData[0].MinimumLightValue);
+
+				AsyncTask(ENamedThreads::GameThread, [this, &complete, &topTotal, &bottomTotal]() {
+					// code to execute on game thread here
+					if (StopTaskCounter.GetValue() == 0)
+					{
+						LightDetectorInstance->AddToLightHistory(topTotal, bottomTotal);
+						complete = true;
+					}
+					});
+			}
+		}
+
+		//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		//prevent thread from using too many resources
+		FPlatformProcess::Sleep(0.01);
+		//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	}
+
+	_finished = true;
+
+	return 0;
+}
+
+//stop
+void FLightDetectorWorker::Stop()
+{
+	StopTaskCounter.Increment();
+}
+
+FLightDetectorWorker* FLightDetectorWorker::ThreadedWorkerInit(ULightDetector* detector)
+{
+	//Create new instance of thread if it does not exist
+	//      and the platform supports multi threading!
+	if (!Runnable && FPlatformProcess::SupportsMultithreading())
+	{
+		Runnable = new FLightDetectorWorker(detector);
+	}
+	return Runnable;
+}
+
+void FLightDetectorWorker::EnsureCompletion()
+{
+	Stop();
+	Thread->WaitForCompletion();
+}
+
+void FLightDetectorWorker::Shutdown()
+{
+	if (Runnable)
+	{
+		Runnable->EnsureCompletion();
+		delete Runnable;
+		Runnable = NULL;
+	}
+}
+
+bool FLightDetectorWorker::IsThreadFinished()
+{
+	if (Runnable) return Runnable->IsFinished();
+	return true;
+}
+//***********************************************************
+//						Thread Worker
+//***********************************************************
+ 
 // Sets default values for this component's properties
 ULightDetector::ULightDetector()
 {
@@ -24,6 +154,17 @@ ULightDetector::ULightDetector()
 	bCaptureStarted.AddDefaulted(2);
 	ReadPixelFence.AddDefaulted(2);
 	CaptureFence.AddDefaulted(2);
+}
+
+void ULightDetector::StartThreadWorker()
+{
+	workerThread = FLightDetectorWorker::ThreadedWorkerInit(this);
+}
+
+void ULightDetector::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	FLightDetectorWorker::Shutdown();
+	Super::EndPlay(EndPlayReason);
 }
 
 // Called every frame
@@ -150,21 +291,38 @@ float ULightDetector::CalculateBrightness() {
 
 void ULightDetector::ProcessBrightness()
 {
-	float topTotal = 0;
-	float bottomTotal = 0;
+	if (workerThread)
+	{
+		FPixelCircularQueueData data;
+		data.topPixelStorage = pixelStorageTop;
+		data.bottomPixelStorage = pixelStorageBottom;
+		data.MinimumLightValue = MinimumLightValue;
+		data.IgnoreBlueColor = IgnoreBlueColor;
+		workerThread->Request.Enqueue(data);
+	}
+	else
+	{
+		float topTotal = 0;
+		float bottomTotal = 0;
 
-	ParallelFor(2, [this, &topTotal, &bottomTotal](int32 index)
-		{
-			if (index == 0)
+		ParallelFor(2, [this, &topTotal, &bottomTotal](int32 index)
+			{
+				if (index == 0)
 				topTotal = ProcessRenderTexture(pixelStorageTop);
-			else if (index == 1)
-				bottomTotal = ProcessRenderTexture(pixelStorageBottom);
-		}, EParallelForFlags::Unbalanced);
+				else if (index == 1)
+					bottomTotal = ProcessRenderTexture(pixelStorageBottom);
+			}, EParallelForFlags::Unbalanced);
 
+		AddToLightHistory(topTotal, bottomTotal);
+	}
+}
+
+void ULightDetector::AddToLightHistory(float TopTotal, float BottomTotal)
+{
 	currentHistoryIndex++;
 	if (currentHistoryIndex > MaxLightHistory) currentHistoryIndex = 0;
 	//over all percentage of luminated
-	lightHistory[currentHistoryIndex] = (topTotal + bottomTotal) / (pixelStorageTop.Num() + pixelStorageBottom.Num());
+	lightHistory[currentHistoryIndex] = (TopTotal + BottomTotal) / (pixelStorageTop.Num() + pixelStorageBottom.Num());
 
 	//average out the last few light detects
 	brightnessOutput = 0;

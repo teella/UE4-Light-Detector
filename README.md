@@ -1,5 +1,7 @@
 # UE5-Light-Detector (Works with Lumen!)
 A C++ Implementation of a stealth game Light Meter similar to those seen in games such as the Thief or Splinter Cell games. 
+# Update Nov 28th 2022
+* Added threaded worker for background processing of pixels
 
 # Update Nov 8th 2022
 Demo Video and showing how its put together  

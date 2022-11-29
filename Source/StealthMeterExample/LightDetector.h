@@ -4,9 +4,87 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Containers/CircularQueue.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "LightDetector.generated.h"
+
+//***********************************************************
+//						Thread Worker
+// Reference: https://unrealcommunity.wiki/multi-threading:-how-to-create-threads-in-ue4-0bsy2g96
+//***********************************************************
+struct FPixelCircularQueueData
+{
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RamaCode)
+	TArray<FColor> topPixelStorage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RamaCode)
+	TArray<FColor> bottomPixelStorage;
+
+	bool IgnoreBlueColor;
+	float MinimumLightValue;
+};
+
+class ULightDetector;
+
+class FLightDetectorWorker : public FRunnable
+{
+public:
+	//Constructor / Destructor
+	FLightDetectorWorker(ULightDetector *detector);
+	virtual ~FLightDetectorWorker();
+
+	/** Singleton instance, can access the thread any time via static accessor, if it is active! */
+	static  FLightDetectorWorker* Runnable;
+
+	FRunnableThread* Thread;
+
+	/** Stop this thread? Uses Thread Safe Counter */
+	FThreadSafeCounter StopTaskCounter;
+
+	bool IsFinished() const
+	{
+		return _finished;
+	}
+	
+	float ProcessRenderTexture(TArray<FColor> pixelStorage, bool IgnoreBlueColor, float MinimumLightValue);
+
+	// Begin FRunnable interface.
+	virtual bool Init();
+	virtual uint32 Run();
+	virtual void Stop();
+	// End FRunnable interface
+
+	/** Makes sure this thread has stopped properly */
+	void EnsureCompletion();
+
+	//~~~ Starting and Stopping Thread ~~~
+
+	/*
+		Start the thread and the worker from static (easy access)!
+		This code ensures only 1 Prime Number thread will be able to run at a time.
+		This function returns a handle to the newly started instance.
+	*/
+	static FLightDetectorWorker* ThreadedWorkerInit(ULightDetector* detector);
+
+	/** Shuts down the thread. Static so it can easily be called from outside the thread context */
+	static void Shutdown();
+
+	static bool IsThreadFinished();
+
+	TCircularQueue<FPixelCircularQueueData> Request;
+
+private:
+	bool _finished{ false };
+
+	TArray<FPixelCircularQueueData> RequestData;
+
+	TObjectPtr<ULightDetector> LightDetectorInstance = nullptr;
+};
+//***********************************************************
+//						Thread Worker
+//***********************************************************
+
 
 UCLASS(ClassGroup = (GothGirl), BlueprintType, Blueprintable, meta = (BlueprintSpawnableComponent))
 class STEALTHMETEREXAMPLE_API ULightDetector : public UActorComponent
@@ -46,8 +124,15 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	UFUNCTION(BlueprintCallable, Category = "LightDetection")
+	void StartThreadWorker();
+
 	UFUNCTION(BlueprintPure, Category = "LightDetection")
 	float GetBrightness() { return brightnessOutput; }
+
+	void AddToLightHistory(float TopTotal, float BottomTotal);
 
 private:
 	float NextLightDectorUpdate{ 0 };
@@ -76,4 +161,6 @@ private:
 
 	TArray<float> lightHistory;
 	int currentHistoryIndex;
+
+	FLightDetectorWorker* workerThread{ NULL };
 };
