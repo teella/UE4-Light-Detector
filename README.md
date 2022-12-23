@@ -1,5 +1,9 @@
-# UE5-Light-Detector (Works with Lumen!)
+# UE5-Light-Detector (Works with Lumen and ScreenSpace!)
 A C++ Implementation of a stealth game Light Meter similar to those seen in games such as the Thief or Splinter Cell games. 
+# Update Dec 23rd 2022
+* Added ability to toggle light detector between Lumen and Screen Space. (Press 1)
+* Added ability to toggle scene between Lumen and Screen Space (Press 2)
+
 # Update Nov 28th 2022
 * Added threaded worker for background processing of pixels
 
