@@ -1,7 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StealthMeterExampleCharacter.h"
-#include "HeadMountedDisplayFunctionLibrary.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
@@ -72,14 +71,6 @@ void AStealthMeterExampleCharacter::SetupPlayerInputComponent(class UInputCompon
 	PlayerInputComponent->BindTouch(IE_Pressed, this, &AStealthMeterExampleCharacter::TouchStarted);
 	PlayerInputComponent->BindTouch(IE_Released, this, &AStealthMeterExampleCharacter::TouchStopped);
 
-	// VR headset functionality
-	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &AStealthMeterExampleCharacter::OnResetVR);
-}
-
-
-void AStealthMeterExampleCharacter::OnResetVR()
-{
-	UHeadMountedDisplayFunctionLibrary::ResetOrientationAndPosition();
 }
 
 void AStealthMeterExampleCharacter::TouchStarted(ETouchIndex::Type FingerIndex, FVector Location)
