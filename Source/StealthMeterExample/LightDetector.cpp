@@ -194,7 +194,16 @@ void ULightDetector::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 				//reset TOP capture bool
 				bCaptureStarted[CAPTURESIDE::TOP] = false;
 
-				detectorBottom->CaptureSceneDeferred();
+				if (FirstTimeRun)
+				{
+					FirstTimeRun = false;
+					//Ensure Scene Capture Component Bottom has Lumen Scene Data
+					detectorBottom->CaptureScene();
+				}
+				else
+				{
+					detectorBottom->CaptureSceneDeferred();
+				}
 				CaptureFence[CAPTURESIDE::BOTTOM].BeginFence(); //lets us know when the capture is done
 				bCaptureStarted[CAPTURESIDE::BOTTOM] = true;
 
@@ -280,8 +289,16 @@ float ULightDetector::CalculateBrightness() {
 
 	if (NextLightDectorUpdate < GetWorld()->GetTimeSeconds())
 	{
-		//CaptureSceneDeferred will capture the scene the next time it's render. So first time the scene will be black
-		detectorTop->CaptureSceneDeferred();
+		if (FirstTimeRun)
+		{
+			//prime Scene Capture Component Bottom with Lumen Scene Data
+			detectorTop->CaptureScene();
+		}
+		else
+		{
+			//CaptureSceneDeferred will capture the scene the next time it's render. So first time the scene will be black
+			detectorTop->CaptureSceneDeferred();
+		}
 		CaptureFence[CAPTURESIDE::TOP].BeginFence(); //lets us know when the capture is done
 		bCaptureStarted[CAPTURESIDE::TOP] = true;
 	}

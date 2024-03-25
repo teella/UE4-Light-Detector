@@ -163,4 +163,7 @@ private:
 	int currentHistoryIndex;
 
 	FLightDetectorWorker* workerThread{ NULL };
+
+	//this is added to stop an an occasional crash in 5.3 and 5.4 getting Lumen Scene Data
+	bool FirstTimeRun{ true };
 };
