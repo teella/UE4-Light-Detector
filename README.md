@@ -1,5 +1,10 @@
 # UE5-Light-Detector (Works with Lumen and ScreenSpace!)
 A C++ Implementation of a stealth game Light Meter similar to those seen in games such as the Thief or Splinter Cell games. 
+
+# Update Mar 25th 2024  
+* Fix for occasional Lumen Scene Data crash on 5.3+  
+* Compile issue fixes for 5.3 (removed VR stuff)
+  
 # Update Dec 23rd 2022
 * Added ability to toggle light detector between Lumen and Screen Space. (Press 1)
 * Added ability to toggle scene between Lumen and Screen Space (Press 2)
